@@ -1,0 +1,11 @@
+dist/
+build/
+coverage/
+*.log
+.vscode/
+.venv/
+.slingshot/
+.agent/
+.__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block title %}Manage Students — RMS{% endblock %}
+
+{% block content %}
+<h2 class="fw-bold mb-4"><i class="bi bi-people-fill me-2 text-success"></i>Manage Students</h2>
+
+<div class="row g-4">
+  <!-- Onboard Student Form -->
+  <div class="col-lg-5">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-success text-white fw-semibold">
+        <i class="bi bi-person-plus-fill me-2"></i>Onboard New Student
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('admin.students') }}" novalidate>
+          <div class="mb-3">
+            <label for="name" class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="name" name="name" placeholder="John Doe" required />
+          </div>
+          <div class="mb-3">
+            <label for="phone" class="form-label fw-semibold">Phone Number <span class="text-danger">*</span></label>
+            <input
+              type="tel"
+              class="form-control"
+              id="phone"
+              name="phone"
+              placeholder="10-digit phone number"
+              pattern="[0-9]{7,15}"
+              required
+            />
+          </div>
+          <div class="mb-3">
+            <label for="email" class="form-label fw-semibold">Email Address <span class="text-danger">*</span></label>
+            <input
+              type="email"
+              class="form-control"
+              id="email"
+              name="email"
+              placeholder="john@example.com"
+              required
+            />
+          </div>
+          <div class="mb-3">
+            <label for="dob" class="form-label fw-semibold">Date of Birth <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="dob" name="dob" required />
+          </div>
+          <div class="mb-3">
+            <label for="address" class="form-label fw-semibold">Address <span class="text-danger">*</span></label>
+            <textarea
+              class="form-control"
+              id="address"
+              name="address"
+              rows="2"
+              placeholder="Residential address"
+              required
+            ></textarea>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Enroll in Courses</label>
+            {% if courses %}
+            <div class="border rounded p-2" style="max-height: 150px; overflow-y: auto;">
+              {% for course in courses %}
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  name="enrolled_courses"
+                  value="{{ course.course_id }}"
+                  id="course_{{ course.course_id }}"
+                />
+                <label class="form-check-label" for="course_{{ course.course_id }}">
+                  {{ course.course_name }}
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted small">No courses available. <a href="{{ url_for('admin.courses') }}">Add courses first.</a></p>
+            {% endif %}
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-person-check-fill me-2"></i>Onboard Student
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Students List -->
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-light fw-semibold">
+        <i class="bi bi-list-ul me-2"></i>All Students ({{ students | length }})
+      </div>
+      <div class="card-body p-0">
+        {% if students %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Roll No</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Courses</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for student in students %}
+              <tr>
+                <td><span class="badge bg-primary">{{ student.roll_no }}</span></td>
+                <td class="fw-semibold">{{ student.name }}</td>
+                <td>{{ student.phone }}</td>
+                <td class="text-muted small">{{ student.email }}</td>
+                <td>
+                  {% for cid in student.enrolled_courses %}
+                    <span class="badge bg-secondary me-1">{{ course_map.get(cid, cid) }}</span>
+                  {% else %}
+                    <span class="text-muted small">None</span>
+                  {% endfor %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-person-x" style="font-size: 3rem;"></i>
+          <p class="mt-2">No students onboarded yet.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

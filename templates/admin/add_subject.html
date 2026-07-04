@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Add Subject — RMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-primary text-white fw-semibold">
+        <i class="bi bi-plus-circle me-2"></i>Add Subject to Course
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-1">Course:</p>
+        <h5 class="fw-bold mb-1">{{ course.course_name }}</h5>
+        <p class="text-muted small mb-3">ID: <code>{{ course.course_id }}</code></p>
+
+        <h6 class="fw-semibold mb-2">Existing Subjects:</h6>
+        <ul class="list-group list-group-flush mb-4">
+          {% for subject in course.subjects %}
+          <li class="list-group-item py-1">
+            <i class="bi bi-dot text-primary"></i> {{ subject.subject_name }}
+          </li>
+          {% else %}
+          <li class="list-group-item text-muted">No subjects yet.</li>
+          {% endfor %}
+        </ul>
+
+        <form method="POST" novalidate>
+          <div class="mb-3">
+            <label for="subject_name" class="form-label fw-semibold">
+              New Subject Name <span class="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              class="form-control"
+              id="subject_name"
+              name="subject_name"
+              placeholder="e.g. Data Structures"
+              required
+            />
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save-fill me-1"></i>Add Subject
+            </button>
+            <a href="{{ url_for('admin.courses') }}" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-left me-1"></i>Back
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

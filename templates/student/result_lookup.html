@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% block title %}Result Lookup — RMS{% endblock %}
+
+{% block content %}
+<div class="rms-hero text-center py-4 mb-4">
+  <div class="container">
+    <i class="bi bi-search text-primary" style="font-size: 3rem;"></i>
+    <h2 class="fw-bold mt-2">Result Lookup</h2>
+    <p class="text-muted">Enter your Roll Number and select a course to view your published results.</p>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0 fw-semibold"><i class="bi bi-person-badge me-2"></i>Check Your Result</h5>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-5">
+            <label class="form-label fw-semibold">Roll Number</label>
+            <input type="text" class="form-control" id="lookup-roll-no" placeholder="e.g. 2026001" />
+          </div>
+          <div class="col-md-5">
+            <label class="form-label fw-semibold">Select Course</label>
+            <select class="form-select" id="lookup-course-id">
+              <option value="">-- Select a Course --</option>
+              {% for course in courses %}
+              <option value="{{ course.course_id }}">{{ course.course_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-primary w-100" onclick="lookupResult()">
+              <i class="bi bi-search me-1"></i>Search
+            </button>
+          </div>
+        </div>
+
+        <div id="lookup-loading" class="text-center py-3 d-none">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+
+        <div id="lookup-error" class="alert alert-warning d-none">
+          <i class="bi bi-exclamation-triangle me-2"></i><span id="lookup-error-msg"></span>
+        </div>
+
+        <div id="lookup-result" class="d-none">
+          <hr />
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+              <h5 class="fw-bold mb-1" id="result-student-name"></h5>
+              <span class="badge bg-primary me-2" id="result-roll-no"></span>
+              <span class="text-muted small" id="result-course-name"></span>
+            </div>
+            <span class="badge bg-success">Published</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-bordered align-middle result-table">
+              <thead class="table-primary">
+                <tr>
+                  <th>Subject</th>
+                  <th class="text-center">Marks Obtained</th>
+                  <th class="text-center">Total Marks</th>
+                  <th class="text-center">Grade</th>
+                  <th class="text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody id="result-marks-tbody"></tbody>
+              <tfoot class="result-summary-row">
+                <tr>
+                  <td class="fw-bold">Overall</td>
+                  <td class="text-center fw-bold" id="result-total-obtained"></td>
+                  <td class="text-center fw-bold" id="result-total-max"></td>
+                  <td class="text-center">
+                    <span class="badge fs-6" id="result-overall-grade"></span>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge fs-6" id="result-overall-result"></span>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="text-center mt-3">
+            <span class="badge grade-badge" id="result-percentage-badge"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function lookupResult() {
+  const rollNo = document.getElementById('lookup-roll-no').value.trim();
+  const courseId = document.getElementById('lookup-course-id').value.trim();
+
+  const errorDiv = document.getElementById('lookup-error');
+  const resultDiv = document.getElementById('lookup-result');
+  const loadingDiv = document.getElementById('lookup-loading');
+
+  errorDiv.classList.add('d-none');
+  resultDiv.classList.add('d-none');
+
+  if (!rollNo || !courseId) {
+    document.getElementById('lookup-error-msg').textContent = 'Please enter a roll number and select a course.';
+    errorDiv.classList.remove('d-none');
+    return;
+  }
+
+  loadingDiv.classList.remove('d-none');
+
+  fetch('/student/result-lookup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roll_no: rollNo, course_id: courseId })
+  })
+  .then(res => res.json())
+  .then(data => {
+    loadingDiv.classList.add('d-none');
+    if (!data.success) {
+      document.getElementById('lookup-error-msg').textContent = data.message || 'An error occurred.';
+      errorDiv.classList.remove('d-none');
+      return;
+    }
+    renderResult(data.data);
+  })
+  .catch(() => {
+    loadingDiv.classList.add('d-none');
+    document.getElementById('lookup-error-msg').textContent = 'Network error. Please try again.';
+    errorDiv.classList.remove('d-none');
+  });
+}
+
+function renderResult(result) {
+  document.getElementById('result-student-name').textContent = result.student_name;
+  document.getElementById('result-roll-no').textContent = result.roll_no;
+  document.getElementById('result-course-name').textContent = result.course_name;
+
+  const tbody = document.getElementById('result-marks-tbody');
+  tbody.innerHTML = '';
+  (result.marks || []).forEach(m => {
+    const statusClass = m.status === 'Pass' ? 'bg-success' : 'bg-danger';
+    const gradeClass = m.grade === 'F' ? 'bg-danger' : (m.grade === 'A' ? 'bg-success' : 'bg-primary');
+    tbody.innerHTML += `
+      <tr>
+        <td class="fw-semibold">${m.subject_name}</td>
+        <td class="text-center">${m.marks_obtained}</td>
+        <td class="text-center">${m.max_marks}</td>
+        <td class="text-center"><span class="badge ${gradeClass}">${m.grade}</span></td>
+        <td class="text-center"><span class="badge ${statusClass}">${m.status}</span></td>
+      </tr>`;
+  });
+
+  document.getElementById('result-total-obtained').textContent = result.total_obtained;
+  document.getElementById('result-total-max').textContent = result.total_max;
+
+  const overallGrade = document.getElementById('result-overall-grade');
+  overallGrade.textContent = result.overall_grade;
+  overallGrade.className = 'badge fs-6 ' + (result.overall_grade === 'F' ? 'bg-danger' : 'bg-success');
+
+  const overallResult = document.getElementById('result-overall-result');
+  overallResult.textContent = result.overall_result;
+  overallResult.className = 'badge fs-6 ' + (result.overall_result === 'Pass' ? 'bg-success' : 'bg-danger');
+
+  const pctBadge = document.getElementById('result-percentage-badge');
+  const pct = result.overall_percentage;
+  pctBadge.textContent = `Overall: ${pct}% — Grade: ${result.overall_grade} — ${result.overall_result}`;
+  pctBadge.className = 'badge grade-badge ' + (result.overall_result === 'Pass' ? 'bg-success' : 'bg-danger');
+
+  document.getElementById('lookup-result').classList.remove('d-none');
+}
+</script>
+{% endblock %}

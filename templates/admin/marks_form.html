@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% block title %}Manage Marks — RMS{% endblock %}
+
+{% block content %}
+<h2 class="fw-bold mb-4"><i class="bi bi-pencil-square me-2 text-warning"></i>Manage Marks</h2>
+
+<div class="row g-4">
+  <!-- Submit Marks Form -->
+  <div class="col-lg-5">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-warning text-dark fw-semibold">
+        <i class="bi bi-clipboard-data-fill me-2"></i>Submit / Update Marks
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('admin.marks') }}" id="marksForm" novalidate>
+          <!-- Course Selection -->
+          <div class="mb-3">
+            <label for="course_id" class="form-label fw-semibold">Select Course <span class="text-danger">*</span></label>
+            <select class="form-select" id="course_id" name="course_id" required>
+              <option value="">-- Select a Course --</option>
+              {% for course in courses %}
+              <option value="{{ course.course_id }}">{{ course.course_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Student Selection (filtered by course) -->
+          <div class="mb-3">
+            <label for="roll_no" class="form-label fw-semibold">Select Student <span class="text-danger">*</span></label>
+            <select class="form-select" id="roll_no" name="roll_no" required>
+              <option value="">-- Select a Student --</option>
+            </select>
+            <div class="form-text">Select a course first to see enrolled students.</div>
+          </div>
+
+          <!-- Dynamic Marks Fields -->
+          <div id="marksFields" class="mb-3"></div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-warning" id="submitMarksBtn" disabled>
+              <i class="bi bi-save-fill me-2"></i>Submit Marks
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Marks Records -->
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-light fw-semibold">
+        <i class="bi bi-table me-2"></i>All Marks Records ({{ marks | length }})
+      </div>
+      <div class="card-body p-0">
+        {% if marks %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Roll No</th>
+                <th>Student</th>
+                <th>Course</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for record in marks %}
+              <tr>
+                <td><span class="badge bg-primary">{{ record.roll_no }}</span></td>
+                <td class="fw-semibold">{{ student_map.get(record.roll_no, record.roll_no) }}</td>
+                <td>{{ course_map.get(record.course_id, record.course_id) }}</td>
+                <td>
+                  {% if record.published %}
+                  <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Published</span>
+                  {% else %}
+                  <span class="badge bg-secondary"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if not record.published %}
+                  <form method="POST" action="{{ url_for('admin.publish_result') }}" class="d-inline">
+                    <input type="hidden" name="roll_no" value="{{ record.roll_no }}" />
+                    <input type="hidden" name="course_id" value="{{ record.course_id }}" />
+                    <button type="submit" class="btn btn-sm btn-success" title="Publish Result">
+                      <i class="bi bi-send-fill"></i> Publish
+                    </button>
+                  </form>
+                  {% else %}
+                  <form method="POST" action="{{ url_for('admin.unpublish_result') }}" class="d-inline">
+                    <input type="hidden" name="roll_no" value="{{ record.roll_no }}" />
+                    <input type="hidden" name="course_id" value="{{ record.course_id }}" />
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Unpublish Result">
+                      <i class="bi bi-arrow-counterclockwise"></i> Unpublish
+                    </button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-clipboard-x" style="font-size: 3rem;"></i>
+          <p class="mt-2">No marks records yet.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const courseSelect = document.getElementById('course_id');
+  const studentSelect = document.getElementById('roll_no');
+  const marksFields = document.getElementById('marksFields');
+  const submitBtn = document.getElementById('submitMarksBtn');
+
+  courseSelect.addEventListener('change', async function () {
+    const courseId = this.value;
+    studentSelect.innerHTML = '<option value="">-- Select a Student --</option>';
+    marksFields.innerHTML = '';
+    submitBtn.disabled = true;
+
+    if (!courseId) return;
+
+    // Fetch enrolled students
+    const resp = await fetch(`/admin/marks/get_enrolled_students?course_id=${encodeURIComponent(courseId)}`);
+    const data = await resp.json();
+    if (data.students && data.students.length > 0) {
+      data.students.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.roll_no;
+        opt.textContent = `${s.name} (${s.roll_no})`;
+        studentSelect.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No enrolled students';
+      studentSelect.appendChild(opt);
+    }
+  });
+
+  studentSelect.addEventListener('change', async function () {
+    const courseId = courseSelect.value;
+    const rollNo = this.value;
+    marksFields.innerHTML = '';
+    submitBtn.disabled = true;
+
+    if (!courseId || !rollNo) return;
+
+    // Fetch subjects for the course
+    const resp = await fetch(`/admin/marks/get_subjects?course_id=${encodeURIComponent(courseId)}`);
+    const data = await resp.json();
+
+    if (data.subjects && data.subjects.length > 0) {
+      const heading = document.createElement('h6');
+      heading.className = 'fw-semibold mb-2';
+      heading.textContent = 'Enter Marks per Subject';
+      marksFields.appendChild(heading);
+
+      data.subjects.forEach(subject => {
+        const row = document.createElement('div');
+        row.className = 'row g-2 mb-2 align-items-center';
+        row.innerHTML = `
+          <div class="col-5">
+            <label class="form-label mb-0 fw-semibold small">${subject.subject_name}</label>
+          </div>
+          <div class="col-3">
+            <input
+              type="number"
+              class="form-control form-control-sm"
+              name="marks_${subject.subject_id}"
+              placeholder="Obtained"
+              min="0"
+              required
+            />
+          </div>
+          <div class="col-1 text-center text-muted">/</div>
+          <div class="col-3">
+            <input
+              type="number"
+              class="form-control form-control-sm"
+              name="max_${subject.subject_id}"
+              placeholder="Max"
+              value="100"
+              min="1"
+              required
+            />
+          </div>
+        `;
+        marksFields.appendChild(row);
+      });
+
+      submitBtn.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

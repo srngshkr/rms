@@ -1,0 +1,405 @@
+{% extends 'base.html' %}
+{% block title %}Student Result Portal — RMS{% endblock %}
+
+{% block content %}
+<!-- Hero Banner -->
+<div class="rms-hero text-center py-5 mb-5">
+  <div class="container">
+    <i class="bi bi-mortarboard-fill text-primary" style="font-size: 4rem;"></i>
+    <h1 class="display-5 fw-bold mt-3">Student Result Portal</h1>
+    <p class="lead text-muted">Check your enrolled courses and view published results instantly.</p>
+    <a href="{{ url_for('student.result_lookup_page') }}" class="btn btn-outline-primary mt-2">
+      <i class="bi bi-search me-2"></i>Quick Result Lookup
+    </a>
+  </div>
+</div>
+
+<div class="row g-5">
+  <!-- ===== SECTION 1: Course Enrollment Overview ===== -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0 fw-semibold">
+          <i class="bi bi-journal-check me-2"></i>My Enrolled Courses
+        </h5>
+        <p class="mb-0 small opacity-75">Enter your Roll Number to see all enrolled courses and result status.</p>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('student.home') }}" novalidate>
+          <input type="hidden" name="action" value="lookup_courses" />
+          <div class="input-group mb-3">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input
+              type="text"
+              class="form-control"
+              name="roll_no_1"
+              value="{{ section1_roll }}"
+              placeholder="Enter Roll Number (e.g. 2026001)"
+              required
+            />
+            <button type="submit" class="btn btn-primary">Look Up</button>
+          </div>
+        </form>
+
+        {% if section1_data %}
+        <div class="mt-3">
+          <div class="d-flex align-items-center mb-3">
+            <div class="flex-grow-1">
+              <h6 class="fw-bold mb-0">{{ section1_data.student.name }}</h6>
+              <span class="badge bg-primary">{{ section1_data.student.roll_no }}</span>
+              <span class="text-muted small ms-2">{{ section1_data.student.email }}</span>
+            </div>
+          </div>
+
+          {% if section1_data.courses %}
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle">
+              <thead class="table-primary">
+                <tr>
+                  <th>Course</th>
+                  <th class="text-center">Result Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in section1_data.courses %}
+                <tr>
+                  <td class="fw-semibold">{{ item.course_name }}</td>
+                  <td class="text-center">
+                    {% if item.status == 'Published' %}
+                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Published</span>
+                    {% elif item.status == 'Pending' %}
+                    <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
+                    {% else %}
+                    <span class="badge bg-secondary"><i class="bi bi-dash-circle me-1"></i>Not Submitted</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>This student is not enrolled in any courses yet.
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION 2: My Results (All Published Results) ===== -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-success text-white">
+        <h5 class="mb-0 fw-semibold">
+          <i class="bi bi-bar-chart-fill me-2"></i>My Results
+        </h5>
+        <p class="mb-0 small opacity-75">Enter your Roll Number to view all your published results grouped by course.</p>
+      </div>
+      <div class="card-body">
+        <div class="input-group mb-3">
+          <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+          <input type="text" class="form-control" id="my-results-roll-no" placeholder="Enter Roll Number (e.g. 2026001)" />
+          <button class="btn btn-success" onclick="loadMyResults()">
+            <i class="bi bi-eye-fill me-1"></i>View Results
+          </button>
+        </div>
+
+        <div id="my-results-loading" class="text-center py-3 d-none">
+          <div class="spinner-border text-success" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+
+        <div id="my-results-error" class="alert alert-warning d-none">
+          <i class="bi bi-exclamation-triangle me-2"></i><span id="my-results-error-msg"></span>
+        </div>
+
+        <div id="my-results-area"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SECTION 3: Check Your Result (Roll Number Lookup) ===== -->
+<div class="row mt-5">
+  <div class="col-12">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-info text-white">
+        <h5 class="mb-0 fw-semibold">
+          <i class="bi bi-search me-2"></i>Check Your Result by Roll Number
+        </h5>
+        <p class="mb-0 small opacity-75">Enter your Roll Number and select a course to view your published result.</p>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Roll Number</label>
+            <input type="text" class="form-control" id="lookup-roll-no" placeholder="e.g. 2026001" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Select Course</label>
+            <select class="form-select" id="lookup-course-id">
+              <option value="">-- Select a Course --</option>
+              {% for course in courses %}
+              <option value="{{ course.course_id }}">{{ course.course_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <button class="btn btn-info text-white w-100" onclick="lookupResult()">
+              <i class="bi bi-search me-1"></i>Search Result
+            </button>
+          </div>
+        </div>
+
+        <div id="lookup-loading" class="text-center py-3 d-none">
+          <div class="spinner-border text-info" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+
+        <div id="lookup-error" class="alert alert-warning mt-3 d-none">
+          <i class="bi bi-exclamation-triangle me-2"></i><span id="lookup-error-msg"></span>
+        </div>
+
+        <div id="lookup-result" class="mt-4 d-none">
+          <hr />
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+              <h5 class="fw-bold mb-1" id="result-student-name"></h5>
+              <span class="badge bg-primary me-2" id="result-roll-no"></span>
+              <span class="text-muted small" id="result-course-name"></span>
+            </div>
+            <span class="badge bg-success">Published</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-bordered align-middle result-table">
+              <thead class="table-info">
+                <tr>
+                  <th>Subject</th>
+                  <th class="text-center">Marks Obtained</th>
+                  <th class="text-center">Total Marks</th>
+                  <th class="text-center">Grade</th>
+                  <th class="text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody id="result-marks-tbody"></tbody>
+              <tfoot class="result-summary-row">
+                <tr>
+                  <td class="fw-bold">Overall</td>
+                  <td class="text-center fw-bold" id="result-total-obtained"></td>
+                  <td class="text-center fw-bold" id="result-total-max"></td>
+                  <td class="text-center"><span class="badge fs-6" id="result-overall-grade"></span></td>
+                  <td class="text-center"><span class="badge fs-6" id="result-overall-result"></span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="text-center mt-3">
+            <span class="badge grade-badge" id="result-percentage-badge"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function loadMyResults() {
+  const rollNo = document.getElementById('my-results-roll-no').value.trim();
+  const errorDiv = document.getElementById('my-results-error');
+  const areaDiv = document.getElementById('my-results-area');
+  const loadingDiv = document.getElementById('my-results-loading');
+
+  errorDiv.classList.add('d-none');
+  areaDiv.innerHTML = '';
+
+  if (!rollNo) {
+    document.getElementById('my-results-error-msg').textContent = 'Please enter a roll number.';
+    errorDiv.classList.remove('d-none');
+    return;
+  }
+
+  loadingDiv.classList.remove('d-none');
+
+  fetch(`/student/results/${encodeURIComponent(rollNo)}`)
+  .then(res => res.json())
+  .then(data => {
+    loadingDiv.classList.add('d-none');
+    if (!data.success) {
+      document.getElementById('my-results-error-msg').textContent = data.message || 'Student not found.';
+      errorDiv.classList.remove('d-none');
+      return;
+    }
+    renderMyResults(data.data);
+  })
+  .catch(() => {
+    loadingDiv.classList.add('d-none');
+    document.getElementById('my-results-error-msg').textContent = 'Network error. Please try again.';
+    errorDiv.classList.remove('d-none');
+  });
+}
+
+function renderMyResults(data) {
+  const areaDiv = document.getElementById('my-results-area');
+  const results = data.results || [];
+  const student = data.student || {};
+
+  if (results.length === 0) {
+    areaDiv.innerHTML = `
+      <div class="empty-state text-center py-4">
+        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+        <p class="text-muted">No published results found for ${student.name || rollNo}.</p>
+      </div>`;
+    return;
+  }
+
+  let html = `<div class="mb-3"><h6 class="fw-bold">${student.name} <span class="badge bg-primary ms-2">${student.roll_no}</span></h6></div>`;
+
+  results.forEach(result => {
+    const resultClass = result.overall_result === 'Pass' ? 'bg-success' : 'bg-danger';
+    const gradeClass = result.overall_grade === 'F' ? 'bg-danger' : 'bg-success';
+    html += `
+      <div class="card mb-3 border-0 shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">${result.course_name}</span>
+          <span class="badge ${resultClass}">${result.overall_result}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0 result-table">
+              <thead class="table-light">
+                <tr>
+                  <th>Subject</th>
+                  <th class="text-center">Marks</th>
+                  <th class="text-center">Total</th>
+                  <th class="text-center">Grade</th>
+                  <th class="text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>`;
+
+    (result.marks || []).forEach(m => {
+      const mStatus = m.status === 'Pass' ? 'bg-success' : 'bg-danger';
+      const mGrade = m.grade === 'F' ? 'bg-danger' : (m.grade === 'A' ? 'bg-success' : 'bg-primary');
+      html += `
+        <tr>
+          <td>${m.subject_name}</td>
+          <td class="text-center">${m.marks_obtained}</td>
+          <td class="text-center">${m.max_marks}</td>
+          <td class="text-center"><span class="badge ${mGrade}">${m.grade}</span></td>
+          <td class="text-center"><span class="badge ${mStatus}">${m.status}</span></td>
+        </tr>`;
+    });
+
+    html += `
+              </tbody>
+              <tfoot class="result-summary-row">
+                <tr>
+                  <td class="fw-bold">Total</td>
+                  <td class="text-center fw-bold">${result.total_obtained}</td>
+                  <td class="text-center fw-bold">${result.total_max}</td>
+                  <td class="text-center"><span class="badge ${gradeClass}">${result.overall_grade}</span></td>
+                  <td class="text-center"><span class="badge ${resultClass}">${result.overall_result}</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="card-footer text-muted small">
+          Overall: ${result.overall_percentage}% &mdash; Grade: ${result.overall_grade}
+        </div>
+      </div>`;
+  });
+
+  areaDiv.innerHTML = html;
+}
+
+function lookupResult() {
+  const rollNo = document.getElementById('lookup-roll-no').value.trim();
+  const courseId = document.getElementById('lookup-course-id').value.trim();
+
+  const errorDiv = document.getElementById('lookup-error');
+  const resultDiv = document.getElementById('lookup-result');
+  const loadingDiv = document.getElementById('lookup-loading');
+
+  errorDiv.classList.add('d-none');
+  resultDiv.classList.add('d-none');
+
+  if (!rollNo || !courseId) {
+    document.getElementById('lookup-error-msg').textContent = 'Please enter a roll number and select a course.';
+    errorDiv.classList.remove('d-none');
+    return;
+  }
+
+  loadingDiv.classList.remove('d-none');
+
+  fetch('/student/result-lookup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roll_no: rollNo, course_id: courseId })
+  })
+  .then(res => res.json())
+  .then(data => {
+    loadingDiv.classList.add('d-none');
+    if (!data.success) {
+      document.getElementById('lookup-error-msg').textContent = data.message || 'An error occurred.';
+      errorDiv.classList.remove('d-none');
+      return;
+    }
+    renderLookupResult(data.data);
+  })
+  .catch(() => {
+    loadingDiv.classList.add('d-none');
+    document.getElementById('lookup-error-msg').textContent = 'Network error. Please try again.';
+    errorDiv.classList.remove('d-none');
+  });
+}
+
+function renderLookupResult(result) {
+  document.getElementById('result-student-name').textContent = result.student_name;
+  document.getElementById('result-roll-no').textContent = result.roll_no;
+  document.getElementById('result-course-name').textContent = result.course_name;
+
+  const tbody = document.getElementById('result-marks-tbody');
+  tbody.innerHTML = '';
+  (result.marks || []).forEach(m => {
+    const statusClass = m.status === 'Pass' ? 'bg-success' : 'bg-danger';
+    const gradeClass = m.grade === 'F' ? 'bg-danger' : (m.grade === 'A' ? 'bg-success' : 'bg-primary');
+    tbody.innerHTML += `
+      <tr>
+        <td class="fw-semibold">${m.subject_name}</td>
+        <td class="text-center">${m.marks_obtained}</td>
+        <td class="text-center">${m.max_marks}</td>
+        <td class="text-center"><span class="badge ${gradeClass}">${m.grade}</span></td>
+        <td class="text-center"><span class="badge ${statusClass}">${m.status}</span></td>
+      </tr>`;
+  });
+
+  document.getElementById('result-total-obtained').textContent = result.total_obtained;
+  document.getElementById('result-total-max').textContent = result.total_max;
+
+  const overallGrade = document.getElementById('result-overall-grade');
+  overallGrade.textContent = result.overall_grade;
+  overallGrade.className = 'badge fs-6 ' + (result.overall_grade === 'F' ? 'bg-danger' : 'bg-success');
+
+  const overallResult = document.getElementById('result-overall-result');
+  overallResult.textContent = result.overall_result;
+  overallResult.className = 'badge fs-6 ' + (result.overall_result === 'Pass' ? 'bg-success' : 'bg-danger');
+
+  const pctBadge = document.getElementById('result-percentage-badge');
+  const pct = result.overall_percentage;
+  pctBadge.textContent = `Overall: ${pct}% — Grade: ${result.overall_grade} — ${result.overall_result}`;
+  pctBadge.className = 'badge grade-badge ' + (result.overall_result === 'Pass' ? 'bg-success' : 'bg-danger');
+
+  document.getElementById('lookup-result').classList.remove('d-none');
+}
+</script>
+{% endblock %}
