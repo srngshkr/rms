@@ -8,7 +8,7 @@
     <i class="bi bi-mortarboard-fill text-primary" style="font-size: 4rem;"></i>
     <h1 class="display-5 fw-bold mt-3">Student Result Portal</h1>
     <p class="lead text-muted">Check your enrolled courses and view published results instantly.</p>
-    <a href="{{ url_for('student.result_lookup_page') }}" class="btn btn-outline-primary mt-2">
+    <a href="{{ url_for('student.result_lookup') }}" class="btn btn-outline-primary mt-2">
       <i class="bi bi-search me-2"></i>Quick Result Lookup
     </a>
   </div>
@@ -230,7 +230,12 @@ function loadMyResults() {
   loadingDiv.classList.remove('d-none');
 
   fetch(`/student/results/${encodeURIComponent(rollNo)}`)
-  .then(res => res.json())
+  .then(res => {
+    if (!res.ok) {
+      return res.json().then(err => { throw new Error(err.message || err.error || 'Request failed with status ' + res.status); });
+    }
+    return res.json();
+  })
   .then(data => {
     loadingDiv.classList.add('d-none');
     if (!data.success) {
@@ -240,9 +245,9 @@ function loadMyResults() {
     }
     renderMyResults(data.data);
   })
-  .catch(() => {
+  .catch(err => {
     loadingDiv.classList.add('d-none');
-    document.getElementById('my-results-error-msg').textContent = 'Network error. Please try again.';
+    document.getElementById('my-results-error-msg').textContent = err.message || 'Network error. Please try again.';
     errorDiv.classList.remove('d-none');
   });
 }
@@ -346,7 +351,12 @@ function lookupResult() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ roll_no: rollNo, course_id: courseId })
   })
-  .then(res => res.json())
+  .then(res => {
+    if (!res.ok) {
+      return res.json().then(err => { throw new Error(err.message || err.error || 'Request failed with status ' + res.status); });
+    }
+    return res.json();
+  })
   .then(data => {
     loadingDiv.classList.add('d-none');
     if (!data.success) {
@@ -356,9 +366,9 @@ function lookupResult() {
     }
     renderLookupResult(data.data);
   })
-  .catch(() => {
+  .catch(err => {
     loadingDiv.classList.add('d-none');
-    document.getElementById('lookup-error-msg').textContent = 'Network error. Please try again.';
+    document.getElementById('lookup-error-msg').textContent = err.message || 'Network error. Please try again.';
     errorDiv.classList.remove('d-none');
   });
 }
