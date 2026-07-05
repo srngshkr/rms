@@ -132,23 +132,30 @@ def get_student_results(roll_no: str):
     return jsonify({"success": False, "message": result["error"]}), 404
 
 
-@student_bp.route("/result-lookup", methods=["GET"])
-def result_lookup_page():
-    """Roll number lookup page for students to check results."""
-    all_courses = course_service.get_all_courses()
-    return render_template("student/result_lookup.html", courses=all_courses)
-
-
-@student_bp.route("/result-lookup", methods=["POST"])
+@student_bp.route("/result-lookup", methods=["GET", "POST"])
 def result_lookup():
-    """Process roll number lookup: course_id + roll_no, return published results only."""
+    """Roll number lookup page (GET) and result lookup API (POST).
+
+    GET: Renders the result lookup page with course list.
+    POST: Accepts JSON body with roll_no and course_id, returns published results.
+          Supports both JSON body and form data for roll_no/course_id.
+    """
+    if request.method == "GET":
+        all_courses = course_service.get_all_courses()
+        return render_template("student/result_lookup.html", courses=all_courses)
+
+    # POST: handle result lookup
+    # Support both JSON body and form data
     data = request.get_json(force=True, silent=True) or {}
-    roll_no = data.get("roll_no", "").strip()
-    course_id = data.get("course_id", "").strip()
+    roll_no = (data.get("roll_no") or request.form.get("roll_no") or "").strip()
+    course_id = (data.get("course_id") or request.form.get("course_id") or "").strip()
 
-    if not roll_no or not course_id:
-        return jsonify({"success": False, "message": "Roll number and course are required."}), 400
+    if not roll_no:
+        return jsonify({"success": False, "message": "Roll number is required."}), 400
+    if not course_id:
+        return jsonify({"success": False, "message": "Course is required."}), 400
 
+    logger.info("Result lookup request: roll_no=%s, course_id=%s", roll_no, course_id)
     result = result_service.get_results_by_roll_no(roll_no, course_id)
     if result["success"]:
         return jsonify({"success": True, "data": result["result"]})
