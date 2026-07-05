@@ -36,7 +36,7 @@ def create_app(config_class: type = Config) -> Flask:
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
-    app.register_blueprint(student_bp)
+    app.register_blueprint(student_bp, url_prefix="/student")
 
     return app
 
